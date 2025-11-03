@@ -17,7 +17,7 @@ struct plane{
 	unsigned int VBO = 0;
 	int plane_type = 0;
 	/* partitions decide the size and quality of the graph */
-	int partitions = 50;
+	int partitions = 6;
 	float xorigin, yorigin;
 	std::vector<float> vertices;
 
@@ -32,6 +32,17 @@ struct plane{
 
 			xorigin = (float)(hscr/2);
 			yorigin = (float)(wscr/2);
+		}
+		if(plane_type == 1){
+			/* y axis */
+			vertices[0] = 0.0f; vertices[1] = (float)hscr;
+			vertices[2] = 0.0f; vertices[3] = 0.0f;
+			/* x axis */
+			vertices[4] = (0.0f); vertices[5] = 0.0f;
+			vertices[6] = (float)wscr; vertices[7] = 0.0f;
+
+			xorigin = (0.0f);
+			yorigin = (0.0f);
 		}
 	}
 
@@ -73,23 +84,50 @@ void processInput(GLFWwindow* win){
 
 /*sets the lines partitions lines along the x and y axis for visual purposes*/
 void graph_mark_lines(plane& xy){
-	double col_width = wscr / xy.partitions;
-	double nrows = hscr / col_width, ncols = wscr / col_width;
-	for(int i=-(xy.partitions/2);i<=(xy.partitions/2);i++){
-		xy.vertices.push_back(xy.yorigin + i*col_width);
-		xy.vertices.push_back(xy.xorigin);
-		xy.vertices.push_back(xy.yorigin + i*col_width);
-		xy.vertices.push_back(xy.xorigin + 5);
+	float col_width = wscr / xy.partitions;
+	float nrows = hscr / col_width, ncols = wscr / col_width;
+
+	/* plane_type regulations */
+	double xmarklines_lb, xmarklines_ub;
+	double ymarklines_lb, ymarklines_ub;
+	if(xy.plane_type == 0){
+		xmarklines_lb = -(xy.partitions/2);
+		xmarklines_ub = xy.partitions/2;
+		ymarklines_lb = -(hscr/2);
+		ymarklines_ub = hscr/2;
+	}
+	else if(xy.plane_type == 1){
+		xmarklines_lb = 0.0f;
+		xmarklines_ub = xy.partitions;
+		ymarklines_lb = 0.0f;
+		ymarklines_ub = hscr;
 	}
 
-	double ierrmargin = nrows - (int)nrows;
-	double erroffset = ierrmargin * col_width;
+	/* mark lines vertices */
+	/* # of pixels mark lines uses, this only takes even numbers. */
+	int mlsize = 6;
 
-	for(int i=-(hscr/2);i<=hscr/2;i+=col_width){
-		xy.vertices.push_back(xy.yorigin);
-		xy.vertices.push_back(xy.xorigin - (i+erroffset/2));
-		xy.vertices.push_back(xy.yorigin + 5);
-		xy.vertices.push_back(xy.xorigin - (i+erroffset/2));
+	/* X axis mark lines */
+	for(double i=xmarklines_lb;i<=xmarklines_ub;i++){
+		xy.vertices.push_back(xy.yorigin + i*col_width);
+		xy.vertices.push_back(xy.xorigin - 3);
+		xy.vertices.push_back(xy.yorigin + i*col_width);
+		xy.vertices.push_back(xy.xorigin + 3);
+	}
+
+	/* Y axis mark lines NOTE: This should be in only 1 for loop ideally
+	 * should work with margin offsets but decimal precision is kinda tricky */
+	for(double i=0;i<=ymarklines_ub;i+=col_width){
+		xy.vertices.push_back(xy.yorigin - (mlsize/2));
+		xy.vertices.push_back(xy.xorigin - (i));
+		xy.vertices.push_back(xy.yorigin + (mlsize/2));
+		xy.vertices.push_back(xy.xorigin - (i));
+	}
+	for(double i=0;i>=ymarklines_lb;i-=col_width){
+		xy.vertices.push_back(xy.yorigin - (mlsize/2));
+		xy.vertices.push_back(xy.xorigin - (i));
+		xy.vertices.push_back(xy.yorigin + (mlsize/2));
+		xy.vertices.push_back(xy.xorigin - (i));
 	}
 }
 
@@ -106,8 +144,20 @@ void init_plane(plane& xy){
 		xy.xorigin = (float)(hscr/2);
 		xy.yorigin = (float)(wscr/2);
 	}
+	else if(xy.plane_type == 1){
+		/* y axis */
+		xy.vertices.push_back(3.0f); xy.vertices.push_back((float)hscr);
+		xy.vertices.push_back(3.0f); xy.vertices.push_back(0.0f);
+		/* x axis */
+		xy.vertices.push_back(0.0f); xy.vertices.push_back((float)hscr-3);
+		xy.vertices.push_back((float)wscr); xy.vertices.push_back((float)hscr-3);
+
+		xy.xorigin = (float)hscr-3;
+		xy.yorigin = 3.0f;
+	}
 
 	graph_mark_lines(xy);
+	std::cout << "Plane vertices size: " << xy.vertices.size() << std::endl;
 
 	xy.VAO = 1;
 	xy.VBO = 1;
@@ -124,14 +174,25 @@ void init_plane(plane& xy){
 }
 
 void graphf(graph& f, plane xy, const std::function<double(double)>& fn){
-	float col_width = wscr / xy.partitions;
-	float nrows = hscr / col_width;
+	double col_width = wscr / xy.partitions;
+	double nrows = hscr / col_width;
+	double graph_precision = 0.001;
 
-	/* initial vertice*/
-	double ox = -(xy.partitions/2), oy = fn(ox);
-	double graph_precision = 0.0001, y;
+	/* plane_type regulations */
+	double xlb, xub;
+	if(xy.plane_type == 0){
+		xlb = -((xy.partitions/2) - graph_precision);
+		xub = xy.partitions/2;
+	}
+	else if(xy.plane_type == 1){
+		xlb = graph_precision;
+		xub = xy.partitions;
+	}
+	/* initial vertices */
+	double ox = xlb - graph_precision, oy = fn(ox), y;
 
-	for(double x=-((xy.partitions/2) - graph_precision); x<=(xy.partitions/2) ;x+=graph_precision){
+
+	for(double x=xlb; x<=xub ;x+=graph_precision){
 		/* distance between vertices */
 		y = fn(x);
 		double dx = x - ox, dy = y - oy;
@@ -234,23 +295,27 @@ int main(void){
 	Shader shader("shader/shader.vs", "shader/shader.fs");
 
 	plane xy;
+	xy.plane_type = 0;
 	init_plane(xy);
 
-	auto rational = [](auto x){
-		return ((x+3)/(x-2));
+	auto E = [](auto x){
+		return (0.1 + std::pow(std::sin(x),2) + 0.35 * std::pow(2.7182, (-1/2)*std::pow(x/0.4, 2)));
+	};
+	auto H = [](auto x){
+		return std::cos(21*x);
+	};
+	auto G = [](auto x){
+		return std::pow(2.7182, (-1/2)*std::pow((x-0.15)/0.10, 2));
 	};
 
-	auto inverse_rational = [](auto x){
-		return -((x+3)/(x-2));
+	auto AM = [E, H, G](auto x){
+		return E(x) * H(x) * (1 - ((1/2)*G(x))) + (1/6)*G(x);
 	};
 
 	graph f1;
-	graphf(f1, xy, inverse_rational);
+	graphf(f1, xy, AM);
 	init_graph(f1);
 
-	graph f3;
-	graphf(f3, xy, rational);
-	init_graph(f3);
 
     while(!glfwWindowShouldClose(win)){
 		startTime = glfwGetTime();
@@ -267,8 +332,6 @@ int main(void){
 		/* Put your functions here */
 		shader.setRenderColor("renderColor", greenColor);
 		draw_graph(f1);
-		shader.setRenderColor("renderColor", redColor);
-		draw_graph(f3);
 
 		glfwSwapBuffers(win);
 		glfwPollEvents();
