@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
+#include <cstdlib>
 #include <cmath>
 
 int scrWidth = 1354;
@@ -12,9 +13,17 @@ glm::mat4 projection = glm::ortho(0.0f, (float)scrWidth, 0.0f, (float)scrHeight)
 /* lame variables for input control */
 bool spawn_ball = 0;
 
+float randFloat(){
+	return (float)(rand()) / (float)(RAND_MAX);
+}
+glm::vec3 randColor(){
+	return glm::vec3(randFloat(), randFloat(), randFloat());
+}
+
 struct ball{
 	std::vector<float> position = {scrWidth / 2.0f, scrHeight / 2.0f};
 	std::vector<float> velocity = {0.0f, 0.0f};
+	glm::vec3 color;
 	float radius = 20;
 	float mass = 2.0f;
 	int segments = 100;
@@ -67,6 +76,7 @@ struct ball{
 
 void add_ball(std::vector<ball>& p, float mx, float my){
 	ball c;
+	c.color = randColor();
 	c.position[0] = mx; c.position[1] = my;
 	p.push_back(c);
 }
@@ -172,6 +182,7 @@ void ball_collision(ball& x, ball& y){
 
 int main(void){
     if(!glfwInit()) { /* failed */ }
+	srand(time(NULL));
     
     GLFWwindow* win = glfwCreateWindow(scrWidth, scrHeight, "elastic collision", NULL, NULL);
 	if(!win) {
@@ -197,16 +208,15 @@ int main(void){
 	std::cout << scrWidth << "x" << scrHeight << std::endl;
 	std::cout << centerx << "x" << centery<< std::endl;
 
-	ball c1, c2, c3, c4, c5, c6, c7;
+	ball c1, c2, c3, c4;
+	c1.color = randColor();
+	c2.color = randColor();
+	c3.color = randColor();
+	c4.color = randColor();
 	c1.position[1] = scrHeight - c1.radius;
 	c3.position[1] = c1.position[1]; c3.position[0] = scrWidth - c3.radius;
-	c4.position[0] = c4.radius; c4.position[1] = scrHeight -c4.radius;
+	c4.position[0] = c4.radius; c4.position[1] = scrHeight - c4.radius;
 
-	/*c3.position[0] = c1.position[0] + 2*c3.radius;
-	c4.position[0] = c3.position[0] + 2*c4.radius;
-	c5.position[0] = c4.position[0] + 2*c5.radius;
-	c6.position[0] = c5.position[0] + 2*c6.radius;
-	c7.position[0] = c6.position[0] + 2*c7.radius;*/
 	std::vector<ball> balls = {c1, c2, c3, c4};
 	Shader shader("shader/shader.vs", "shader/shader.fs");
 
@@ -240,6 +250,7 @@ int main(void){
 
 		shader.use();
 		for(int i=0;i<balls.size();i++){
+			shader.setBallColor("ballColor", balls[i].color);
 			draw_circle(balls[i]);
 			balls[i].checkColision();
 			balls[i].updatePos();

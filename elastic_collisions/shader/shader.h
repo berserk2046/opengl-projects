@@ -95,6 +95,10 @@ public:
 	void setUProjection(const std::string &name, glm::mat4 projection) const{
 		glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, glm::value_ptr(projection));
 	}
+	
+	void setBallColor(const std::string &name, glm::vec3 color) const{
+		glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, &color[0]);
+	}
 
 private:
     void checkCompileErrors(unsigned int shader, std::string type)
