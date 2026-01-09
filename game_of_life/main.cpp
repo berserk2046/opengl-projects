@@ -13,8 +13,8 @@ typedef uint64_t u64;
 typedef uint16_t u16;
 typedef uint8_t u8;
 
-int wscr = 512;
-int hscr = 512;
+int wscr = 1320;
+int hscr = 720;
 int bsz = 10;
 int ncols = wscr/bsz;
 int nrows = hscr/bsz;
@@ -66,7 +66,7 @@ void init_plane(plane& world){
 	glEnableVertexAttribArray(0);
 }
 
-int get_alive(std::vector<u8> game_state){
+int get_alive(std::vector<u8>& game_state){
 	int alive = 0;
 	for(int i=0;i<game_state.size();i++){
 		if(game_state[i] == 1){ alive++; }
@@ -76,30 +76,25 @@ int get_alive(std::vector<u8> game_state){
 
 void update_creatures(life& p, int init = 0){
 	int alive = get_alive(p.game_state);
-	glm::vec2 translations[alive];
+	std::vector<glm::vec2> translations;
+	translations.reserve(alive);
 	int index = 0;
 
-	for(int i=1;i<p.game_state.size()+1;i++){
+	for(int i=0;i<p.game_state.size();i++){
 		if(p.game_state[i] == 1){
-			int px = (i%ncols)-1, py = (int)i/ncols;
-			if(px == 0){ px = ncols-1; py = (i/ncols)-1; }
-			else{ px--; }
-
-			int x = px * bsz, y = py * bsz;
-			glm::vec2 translation;
-			translation.x = x;
-			translation.y = y;
-			translations[index++] = translation;
+			int px = (i%ncols), py = i/ncols;
+			translations.emplace_back(px*bsz, py*bsz);
 		}
 	}
-	
+
 	glBindBuffer(GL_ARRAY_BUFFER, p.VBO_instanced);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * alive, &translations[0], GL_STATIC_DRAW);
+
+	if(!translations.empty()){ glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * alive, &translations[0], GL_STATIC_DRAW); }
+	else{ glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW); }
 
 	glBindVertexArray(p.VAO);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glVertexAttribDivisor(1, 1);
 
 }
@@ -130,14 +125,8 @@ void init_life(life& p){
 
 	/* Define dead or alive for each cell */
 	for(int i=0;i<ncreature;i++){
-		p.game_state.push_back(rand()%2);
+		p.game_state.emplace_back(rand()%2);
 	}
-
-	// n.game_state[((ncols*3) + (5))] = 1;
-	// n.game_state[((ncols*3) + (5)) + ncols + 1] = 1;
-	// n.game_state[((ncols*3) + (5)) + ncols + 1 + ncols] = 1;
-	// n.game_state[((ncols*3) + (5)) + ncols + 1 + ncols - 1] = 1;
-	// n.game_state[((ncols*3) + (5)) + ncols + 1 + ncols - 2] = 1;
 
 	update_creatures(p);
 }
@@ -156,20 +145,19 @@ void draw_life(life& n){
 }
 
 u8 get_neighbors(std::vector<u8> state, int position){
-	u32 p = position + 1; /* this is because positions should be counted from 1 to n when converting to px and py format, and generally in loops it's done from 0 to n*/
 	u8 neighbors = 0;
-	u16 px = (p%ncols)-1, py = p/ncols;
-	if(px == 0){ px = ncols-1; py = (p/ncols)-1; }
-	else{ px--; }
+	u16 px = (position%ncols), py = position/ncols;
 
-	if(px != 0 && state[position - 1] == 1){ neighbors++; }
-	if(px != ncols-1 && state[position + 1] == 1){ neighbors++; }
-	if(py != 0 && state[position - ncols] == 1){ neighbors++; }
-	if(py != 0 && state[position - (ncols-1)] == 1){ neighbors++; }
-	if(py != 0 && state[position - (ncols+1)] == 1){ neighbors++; }
-	if(py != nrows-1 && state[position + ncols] == 1){ neighbors++; }
-	if(py != nrows-1 && state[position + (ncols-1)] == 1){ neighbors++; }
-	if(py != nrows-1 && state[position + (ncols+1)] == 1){ neighbors++; }
+	for(int8_t dy=-1;dy<=1;dy++){
+		for(int8_t dx=-1;dx<=1;dx++){
+			if(dx==0 && dy==0){ continue; }
+			u32 x = px + dx;
+			u32 y = py + dy;
+			if(x >= 0 && x < ncols && y >= 0 && y < nrows){
+				neighbors += state[y*ncols + x];
+			}
+		}
+	}
 	return neighbors;
 }
 
@@ -207,7 +195,7 @@ int main(void){
 	double xpos, ypos;
 
 	/* fps */
-	const double fps = 10.0;
+	const double fps = 60.0;
 	const double fps_time = 1.0 / fps;
 	double startTime;
 	double endTime;
@@ -247,40 +235,41 @@ int main(void){
 		shader.use();
 		/* keyboard */
 		if(glfwGetKey(win, GLFW_KEY_SPACE) == GLFW_PRESS){
-			if(load) load=0;
-			else load=1;
-			waitm(300);
+			if(load){ load=0; }
+			else{ load=1; }
+			waitm(250);
 		}
 		if(glfwGetKey(win, GLFW_KEY_R) == GLFW_PRESS){
 			for(int i=0;i<conway.game_state.size();i++){
 				conway.game_state[i] = 0;
 			}
-			waitm(300);
+			update_creatures(conway);
+			waitm(250);
 		}
 		if(glfwGetKey(win, GLFW_KEY_G) == GLFW_PRESS){
 			for(int i=0;i<conway.game_state.size();i++){
 				conway.game_state[i] = rand() % 2;
 			}
-			waitm(300);
+			update_creatures(conway);
+			waitm(250);
 		}
 
 		/* mouse */
 		if(glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS){
 			glfwGetCursorPos(win, &xpos, &ypos);
 			int px = static_cast<int>(xpos/bsz), py = static_cast<int>(ypos/bsz);
-			int position = (py*ncols) + px;
-			if(conway.game_state[position] == 1) conway.game_state[position] = 0;
-			else conway.game_state[position] = 1;
-			waitm(300);
+			if(conway.game_state[py*ncols + px] == 1){ conway.game_state[py*ncols + px] = 0; }
+			else{ conway.game_state[py*ncols + px] = 1; }
+			update_creatures(conway);
+			waitm(250);
 		}
 		
 		/* drawing */
 		shader.setRenderColor("renderColor", whiteColor);
 		draw_life(conway);
-	//	shader.setRenderColor("renderColor", grayColor);
-	//	draw_plane(world);
-		if(load)
-			update_game_state(conway);
+		/*shader.setRenderColor("renderColor", grayColor);
+		draw_plane(world); */
+		if(load) { update_game_state(conway); }
 
 		glfwSwapBuffers(win);
 		glfwPollEvents();
