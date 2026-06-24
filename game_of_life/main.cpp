@@ -15,7 +15,7 @@ typedef uint8_t u8;
 
 int wscr = 1320;
 int hscr = 720;
-int bsz = 10;
+int bsz = 4;
 int ncols = wscr/bsz;
 int nrows = hscr/bsz;
 glm::mat4 projection = glm::ortho(0.0f, (float)wscr, (float)hscr,0.0f); /* left right up down */

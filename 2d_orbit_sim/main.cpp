@@ -8,14 +8,15 @@
 /* config variables */
 int scrWidth = 1920;
 int scrHeight = 1001;
-double centerx = scrWidth /2.0f, centery = scrHeight/2.0f;
+
 /* advances roughly at half a day per frame */
 float time_change = 3600 * 12;
 
-glm::mat4 projection = glm::ortho(0.0f, (float)scrWidth,0.0f, (float)scrHeight); // left right up down
-glm::vec2 cameraPos = glm::vec2(0.0f, 0.0f);
+glm::mat4 projection = glm::ortho(0.0f, (float)scrWidth, (float)scrHeight, 0.0f); // left right up down
+glm::vec2 cameraPos;
 float cameraZoom = 1.0f;
 
+/* constants */
 double G = 6.674 * std::pow(10, -11);
 
 struct planet{
@@ -23,6 +24,7 @@ struct planet{
 	std::vector<float> position = {scrWidth / 2.0f, scrHeight / 2.0f};
 	std::vector<double> velocity = {0.0f, 0.0f};
 	std::vector<double> accel = {0.0f, 0.0f};
+	glm::vec3 color;
 	float radius = 20;
 	double mass = 2.0f;
 	int segments = 100;
@@ -37,14 +39,22 @@ struct planet{
 
 };
 
-
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
-    // Increase or decrease zoom by a fraction based on scroll delta
-    cameraZoom *= (1.0f + yoffset * 0.1f);
+	/* Set cameraPos on zoom position */
+	double xpos, ypos;
+	glfwGetCursorPos(window, &xpos, &ypos);
+	glm::vec2 mworld;
+	mworld.x = ((float)xpos + cameraPos.x) / cameraZoom;
+	mworld.y = ((float)ypos + cameraPos.y) / cameraZoom;
 
-    // Clamp zoom level so it doesn't get too small or too big
-    if (cameraZoom < 0.0001f) cameraZoom = 0.0001f;
+    /* Increase or decrease zoom by a fraction based on scroll delta */
+    cameraZoom *= (1.0f + yoffset * 0.1f);
+    /* Cap zoom level so it doesn't get too small or too big */
+    if (cameraZoom < 0.00000001f) cameraZoom = 0.0001f;
     if (cameraZoom > 20.0f) cameraZoom = 20.0f;
+	cameraPos.x = mworld.x * cameraZoom - (float)xpos;
+	cameraPos.y = mworld.y * cameraZoom - (float)ypos;
+
 }
 
 static void key_callback(GLFWwindow* win, int key, int scancode, int action, int mods){
@@ -82,11 +92,10 @@ void processInput(GLFWwindow* win){
 
 std::vector<float> create_circle(planet c){
 	std::vector<float> vertices;
-	double pexp = 7.7;
-	float x,y;
+	float centerx = (scrWidth / 2), centery = (scrHeight / 2), x, y;
+	double pexp = 5.5;
 
 	vertices.push_back(c.position[0]*std::pow(10, -pexp) + centerx); vertices.push_back(c.position[1]*std::pow(10, -pexp) + centery);
-	//std::cout<< c.name << "center at: " << c.position[0] * std::pow(10,-pexp) + centerx << " X " << c.position[1] * std::pow(10,-pexp) + centery << std::endl;
 
 	for(int i=0;i<=c.segments;i++){
 		float angle = 2.0f * M_PI * i / c.segments;
@@ -94,7 +103,6 @@ std::vector<float> create_circle(planet c){
 		y = (c.position[1] * std::pow(10, -pexp) + centery) + c.radius * std::sin(angle);
 		vertices.push_back(x); vertices.push_back(y);
 	}
-	
 	return vertices;
 }
 
@@ -133,23 +141,19 @@ void draw_circle(planet& c){
 }
 
 void planet_orbit(planet& p1, planet& p2){
-	float x = p2.position[0] - p1.position[0], y = p2.position[1] - p1.position[1];
-
+	/* distances */
+	double x = p2.position[0] - p1.position[0], y = p2.position[1] - p1.position[1];
 	std::vector<double> r = {x,y};
 	double v_length = std::sqrt(x*x + y*y);
-	//std::cout << "Distance between " << p1.name << " and " << p2.name << ": " << v_length << std::endl;
 	std::vector<double> rdir = {x / v_length, y / v_length};
 
+	/* magnitude */
 	double force_magnitude = (G * p1.mass * p2.mass) / std::pow(v_length, 2);
-	//std::cout << "Force Magnitude between "<< p1.name << " and " << p2.name << ": " << force_magnitude << std::endl;
-	//std::cout << std::endl;
 	std::vector<double> force_direction = {force_magnitude*rdir[0], force_magnitude*rdir[1]};
-
 	std::vector<double> a1 = { force_direction[0]/p1.mass, force_direction[1]/p1.mass };
 	std::vector<double> a2 = { -1*force_direction[0]/p2.mass, -1*force_direction[1]/p2.mass };
-	//std::cout << "p1 Acceleration (" << a1[0] << ", " << a1[1] << ")" << std::endl;
-	//std::cout << "p2 Acceleration (" << a2[0] << ", " << a2[1] << ")" << std::endl;
 
+	/* apply velocity */
 	p1.velocity[0] += a1[0] * time_change;
 	p1.velocity[1] += a1[1] * time_change;
 	
@@ -175,26 +179,31 @@ int main(void){
 	}
 
 	glViewport(0,0,scrWidth, scrHeight);
-
-
     glfwSetKeyCallback(win, key_callback);
 	glfwSetScrollCallback(win, scroll_callback);
 	glfwSetFramebufferSizeCallback(win, framebuffer_size_callback); /* callback if win has been resized */
 
-	planet earth, venus, sun, mercury, mars, jupiter, saturn, uranus, neptune;
+	planet earth, venus, sun, mercury, mars, jupiter, saturn, uranus, neptune, moon;
 
-	glm::vec3 mercuryColor = glm::vec3(0.412f, 0.412f, 0.412f);
-	glm::vec3 venusColor = glm::vec3(0.5f, 0.5f, 0.5f);
-	glm::vec3 earthColor = glm::vec3(0.0f, 0.5f, 0.0f);
-	glm::vec3 marsColor = glm::vec3(0.737f, 0.153f, 0.196f);
-	glm::vec3 sunColor = glm::vec3(1.0f, 1.0f, 0.0f);
-	glm::vec3 jupiterColor = glm::vec3(0.85f, 0.65f, 0.45f);
-	glm::vec3 saturnColor = glm::vec3(0.95f, 0.85f, 0.55f);
-	glm::vec3 uranusColor = glm::vec3(0.55f, 0.75f, 0.85f);
-	glm::vec3 neptuneColor = glm::vec3(0.3f, 0.45f, 0.85f);
+	mercury.color = glm::vec3(0.412f, 0.412f, 0.412f);
+	venus.color = glm::vec3(0.5f, 0.5f, 0.5f);
+	earth.color = glm::vec3(0.0f, 0.5f, 0.0f);
+	moon.color = glm::vec3(0.5f, 0.5f, 0.5f);
+	mars.color = glm::vec3(0.737f, 0.153f, 0.196f);
+	sun.color = glm::vec3(1.0f, 1.0f, 0.0f);
+	jupiter.color = glm::vec3(0.85f, 0.65f, 0.45f);
+	saturn.color = glm::vec3(0.95f, 0.85f, 0.55f);
+	uranus.color = glm::vec3(0.55f, 0.75f, 0.85f);
+	neptune.color = glm::vec3(0.3f, 0.45f, 0.85f);
 
 	sun.name = "Sun";
 	sun.mass = 1.9885 * std::pow(10,30);
+
+	/*Variable name guides
+	 * smAxis = Distance to the sun
+	 * Perihelion = point in a planets orbit where it's closest to the sun
+	 * E = Elipse excentricity
+	 * initv = initial velocity*/
 
 	mercury.name = "Mercury";
 	mercury.mass = 3.30 * std::pow(10, 23);
@@ -219,6 +228,15 @@ int main(void){
 	double earthPerihelion = earth_smAxis*(1-earthE);
 	double earth_initv = std::sqrt(G*sun.mass * ((2/earthPerihelion)-(1/earth_smAxis)));
 	earth.position[0] = sun.position[0] - earthPerihelion;
+
+	moon.name = "Moon";
+	moon.mass = 7.348 * std::pow(10, 22);
+	double moon_emAxis = 384400000;
+	double moonE = 0.0549;
+	double moonPerigee = moon_emAxis*(1-moonE);
+	double moon_initv = std::sqrt(G*earth.mass * ((2/moonPerigee)-(1/moon_emAxis)));
+	std::cout << moonPerigee << ":Perigee Initv:" << moon_initv;
+	moon.position[0] = earth.position[0] - moonPerigee;
 
 	mars.name = "Mars";
 	mars.mass = 6.42 * std::pow(10,23);
@@ -260,12 +278,13 @@ int main(void){
 	double neptune_initv = std::sqrt(G*sun.mass * ((2/neptunePerihelion)-(1/neptune_smAxis)));
 	neptune.position[0] = sun.position[0] - neptunePerihelion;
 
-	sun.radius = 696340 / std::pow(10, 3);
+	sun.radius = 696340 / std::pow(10, 1.2);
 	/* other planets are on a different scale than the sun for visual purposes */
-	float pS = 2.35;
+	float pS = 1;
 	mercury.radius = 2439.7 / std::pow(10, pS);
 	venus.radius = 6051.8 / std::pow(10, pS);
 	earth.radius = 6371 / std::pow(10, pS);
+	moon.radius = 1737.5 / std::pow(10, pS);
 	mars.radius = 3389.5 / std::pow(10, pS);
 	jupiter.radius = 69911 / std::pow(10, pS);
 	saturn.radius = 58232 / std::pow(10, pS);
@@ -274,7 +293,8 @@ int main(void){
 
 	mercury.velocity = {0.0, mercury_initv};
 	venus.velocity = {0.0, venus_initv};
-	earth.velocity = {0.0, earth_initv};
+	earth.velocity = {0.0, earth_initv + ((-moon_initv * moon.mass)/earth.mass)};
+	moon.velocity = {0.0, moon_initv+earth_initv};
 	mars.velocity = {0.0, mars_initv};
 	jupiter.velocity = {0.0, jupiter_initv};
 	saturn.velocity = {0.0, saturn_initv};
@@ -289,19 +309,22 @@ int main(void){
 		+ ((-uranus_initv*uranus.mass)/sun.mass)
 		+ ((-neptune_initv*neptune.mass)/sun.mass)};
 
+	std::vector<planet> solar_system;
+	solar_system.push_back(sun);
+	solar_system.push_back(mercury);
+	solar_system.push_back(venus);
+	solar_system.push_back(earth);
+	solar_system.push_back(moon);
+	solar_system.push_back(mars);
+	solar_system.push_back(jupiter);
+	solar_system.push_back(saturn);
+	solar_system.push_back(uranus);
+	solar_system.push_back(neptune);
 
-	for(int i=0;i<9;i++){
-		init_planet(sun);
-		init_planet(earth);
-		init_planet(venus);
-		init_planet(mercury);
-		init_planet(mars);
-		init_planet(jupiter);
-		init_planet(saturn);
-		init_planet(uranus);
-		init_planet(neptune);
+	for(int i=0;i<solar_system.size();i++){
+		init_planet(solar_system[i]);
 	}
-
+	
 	Shader shader("shader/shader.vs", "shader/shader.fs");
 
 	glm::mat4 view;
@@ -313,57 +336,20 @@ int main(void){
 		vp = projection * view;
 
 		processInput(win);
-
 		shader.setUProjection("uProjection", vp);
 		glClear(GL_COLOR_BUFFER_BIT);
 		shader.use();
 
-		/* sun gravitational force */
-		planet_orbit(sun,mercury);
-		planet_orbit(sun,venus);
-		planet_orbit(sun,earth);
-		planet_orbit(sun,mars);
-		planet_orbit(sun,jupiter);
-		planet_orbit(sun,saturn);
-		planet_orbit(sun,uranus);
-		planet_orbit(sun,neptune);
-
-		shader.setPlanetColor("planetColor", mercuryColor);
-		draw_circle(mercury);
-
-		shader.setPlanetColor("planetColor", venusColor);
-		draw_circle(venus);
-
-		shader.setPlanetColor("planetColor", earthColor);
-		draw_circle(earth);
-
-		shader.setPlanetColor("planetColor", marsColor);
-		draw_circle(mars);
-		
-		shader.setPlanetColor("planetColor", jupiterColor);
-		draw_circle(jupiter);
-
-		shader.setPlanetColor("planetColor", saturnColor);
-		draw_circle(saturn);
-
-		shader.setPlanetColor("planetColor", uranusColor);
-		draw_circle(uranus);
-
-		shader.setPlanetColor("planetColor", neptuneColor);
-		draw_circle(neptune);
-
-		shader.setPlanetColor("planetColor", sunColor);
-		draw_circle(sun);
-
-		mercury.updatePos(time_change);
-		venus.updatePos(time_change);
-		earth.updatePos(time_change);
-		mars.updatePos(time_change);
-		jupiter.updatePos(time_change);
-		saturn.updatePos(time_change);
-		uranus.updatePos(time_change);
-		neptune.updatePos(time_change);
-		sun.updatePos(time_change);
+		for(int i=0;i<solar_system.size();i++){
+			for(int j=0;j<solar_system.size();j++){
+				if(j!=i){
+					planet_orbit(solar_system[i], solar_system[j]);
+				}
+			}
+			shader.setPlanetColor("planetColor", solar_system[i].color);
+			draw_circle(solar_system[i]);
+			solar_system[i].updatePos(time_change);
+		}
 
 		glfwSwapBuffers(win);
 		glfwPollEvents();
