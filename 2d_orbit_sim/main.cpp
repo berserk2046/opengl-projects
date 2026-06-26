@@ -4,17 +4,19 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <chrono>
+#include <thread>
 
 /* config variables */
 int scrWidth = 1920;
 int scrHeight = 1001;
 
 /* advances roughly at half a day per frame */
-float time_change = 3600 * 12;
+float time_change = 1800;
 
 glm::mat4 projection = glm::ortho(0.0f, (float)scrWidth, (float)scrHeight, 0.0f); // left right up down
 glm::vec2 cameraPos;
-float cameraZoom = 1.0f;
+float cameraZoom = 0.1f;
 
 /* constants */
 double G = 6.674 * std::pow(10, -11);
@@ -159,6 +161,10 @@ void planet_orbit(planet& p1, planet& p2){
 	
 	p2.velocity[0] += a2[0] * time_change;
 	p2.velocity[1] += a2[1] * time_change;
+}
+
+void waitm(int m){
+	std::this_thread::sleep_for(std::chrono::milliseconds(m));
 }
 
 int main(void){
@@ -329,11 +335,21 @@ int main(void){
 
 	glm::mat4 view;
 	glm::mat4 vp;
+	double mx, my;
 
     while(!glfwWindowShouldClose(win)){
 		view = glm::translate(glm::mat4(1.0f), glm::vec3(-cameraPos, 0.0f));
 		view = glm::scale(view, glm::vec3(cameraZoom, cameraZoom, 1.0f));
 		vp = projection * view;
+
+		if(glfwGetMouseButton(win, GLFW_MOUSE_BUTTON_LEFT)==GLFW_PRESS){
+			double nmx, nmy;
+			glfwGetCursorPos(win,&mx,&my);
+			waitm(10);
+			glfwGetCursorPos(win,&nmx,&nmy);
+			cameraPos.x += mx-nmx;
+			cameraPos.y -= my-nmy;
+		}
 
 		processInput(win);
 		shader.setUProjection("uProjection", vp);
