@@ -5,13 +5,16 @@
 #include <vector>
 #include <cstdlib>
 #include <cmath>
+#include <chrono>
+#include <thread>
 
 int scrWidth = 1354;
 int scrHeight = 724;
-glm::mat4 projection = glm::ortho(0.0f, (float)scrWidth, 0.0f, (float)scrHeight); // left right up down
+glm::mat4 projection = glm::ortho(0.0f, (float)scrWidth, (float)scrHeight, 0.0f); // left right up down
 
-/* lame variables for input control */
-bool spawn_ball = 0;
+/* input control variables */
+int cball = 0;
+int gravity_mode = 0;
 
 float randFloat(){
 	return (float)(rand()) / (float)(RAND_MAX);
@@ -69,7 +72,6 @@ struct ball{
 			float vm = (x*x) + (y*y);
 
 			updateAccel(vm*xn, vm*yn);
-			std::cout << "direction x: " << x*xn << ", direction y: " << y*yn << std::endl;
 		}
 	}
 };
@@ -85,9 +87,8 @@ static void key_callback(GLFWwindow* win, int key, int scancode, int action, int
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
 		glfwSetWindowShouldClose(win, GLFW_TRUE);
     }
-	if(key == GLFW_KEY_ENTER && action == GLFW_PRESS){
-		spawn_ball = 1;
-	}
+	if(key == GLFW_KEY_ENTER && action == GLFW_PRESS) cball = 1 - cball;
+	if(key == GLFW_KEY_SPACE && action == GLFW_PRESS) gravity_mode = 1 - gravity_mode;
 }
 
 /* basically what to do if window is resized */
@@ -96,12 +97,6 @@ void framebuffer_size_callback(GLFWwindow* win, int width, int height){
 	scrHeight = height;
 	scrWidth = width;
 	projection = glm::ortho(0.0f, (float)scrWidth, 0.0f, (float)scrHeight);
-}
-
-void processInput(GLFWwindow* win){
-	if(glfwGetKey(win, GLFW_KEY_ESCAPE) == GLFW_PRESS){
-		glfwSetWindowShouldClose(win,true);
-	}
 }
 
 std::vector<float> create_circle(ball c){
@@ -180,6 +175,10 @@ void ball_collision(ball& x, ball& y){
 	}
 }
 
+void waitm(int m){
+	std::this_thread::sleep_for(std::chrono::milliseconds(m));
+}
+
 int main(void){
     if(!glfwInit()) { /* failed */ }
 	srand(time(NULL));
@@ -222,21 +221,11 @@ int main(void){
 
 	double mousex, mousey;
 	float mx, my;
-	int gravity_mode = 0;
 
     while(!glfwWindowShouldClose(win)){
-		/* proccessInput only does basic things*/
-		processInput(win);
-
-		if(spawn_ball){
+		if(cball){
 			add_ball(balls, mx, my);
-			spawn_ball = 0;
-		}
-		if(glfwGetKey(win, GLFW_KEY_SPACE) == GLFW_PRESS){
-			if(gravity_mode == 0){
-				gravity_mode = 1;
-			}
-			else gravity_mode = 0;
+			cball = 0;
 		}
 
 		glfwGetCursorPos(win, &mousex, &mousey);
