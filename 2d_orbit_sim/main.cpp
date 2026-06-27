@@ -11,8 +11,8 @@
 int scrWidth = 1920;
 int scrHeight = 1001;
 
-/* advances roughly at half a day per frame */
-float time_change = 1800;
+/* advances roughly at one hour per frame*/
+float time_change = 3600;
 
 glm::mat4 projection = glm::ortho(0.0f, (float)scrWidth, (float)scrHeight, 0.0f); // left right up down
 glm::vec2 cameraPos;
@@ -153,14 +153,10 @@ void planet_orbit(planet& p1, planet& p2){
 	double force_magnitude = (G * p1.mass * p2.mass) / std::pow(v_length, 2);
 	std::vector<double> force_direction = {force_magnitude*rdir[0], force_magnitude*rdir[1]};
 	std::vector<double> a1 = { force_direction[0]/p1.mass, force_direction[1]/p1.mass };
-	std::vector<double> a2 = { -1*force_direction[0]/p2.mass, -1*force_direction[1]/p2.mass };
 
 	/* apply velocity */
 	p1.velocity[0] += a1[0] * time_change;
 	p1.velocity[1] += a1[1] * time_change;
-	
-	p2.velocity[0] += a2[0] * time_change;
-	p2.velocity[1] += a2[1] * time_change;
 }
 
 void waitm(int m){
@@ -241,7 +237,6 @@ int main(void){
 	double moonE = 0.0549;
 	double moonPerigee = moon_emAxis*(1-moonE);
 	double moon_initv = std::sqrt(G*earth.mass * ((2/moonPerigee)-(1/moon_emAxis)));
-	std::cout << moonPerigee << ":Perigee Initv:" << moon_initv;
 	moon.position[0] = earth.position[0] - moonPerigee;
 
 	mars.name = "Mars";
