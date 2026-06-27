@@ -5,8 +5,6 @@
 #include <vector>
 #include <cstdlib>
 #include <cmath>
-#include <chrono>
-#include <thread>
 
 int scrWidth = 1354;
 int scrHeight = 724;
@@ -173,10 +171,6 @@ void ball_collision(ball& x, ball& y){
 		x.velocity = { ((v1n*n[0]) + (v1t*t[0])), ((v1n*n[1]) + (v1t*t[1])) };
 		y.velocity = { ((v2n*n[0]) + (v2t*t[0])), ((v2n*n[1]) + (v2t*t[1])) };
 	}
-}
-
-void waitm(int m){
-	std::this_thread::sleep_for(std::chrono::milliseconds(m));
 }
 
 int main(void){
